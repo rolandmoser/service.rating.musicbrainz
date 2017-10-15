@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<settings>
+    <setting label="30001" type="text"   id="username" default=""/>
+    <setting label="30002" type="text"   id="password" option="hidden"  enable="!eq(-1,)" default=""/>
+    <!-- TODO: add setting how often to perform a refresh -->
+</settings>
