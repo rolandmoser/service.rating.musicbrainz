@@ -10,10 +10,10 @@
                 <language></language>
                 <platform>all</platform>
                 <license>GNU GENERAL PUBLIC LICENSE Version 2</license>
-                <forum>http://forum.kodi.tv/showthread.php?tid=158540</forum>
+                <forum></forum>
                 <website></website>
                 <email></email>
-                <source>https://github.com/XBMC-Addons/service.scrobbler.librefm/</source>
+                <source></source>
         </extension>
 </addon>
 
