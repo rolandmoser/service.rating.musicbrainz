@@ -2,5 +2,6 @@
 <strings>
     <string id="30001">MusicBrainz user name</string>
     <string id="30002">MusicBrainz password</string>
+    <string id="30003">Refresh all ratings</string>
 </strings>
 

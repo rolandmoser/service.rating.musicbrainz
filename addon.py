@@ -13,9 +13,10 @@
 # *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 # *  http://www.gnu.org/copyleft/gpl.html
 
-import urllib, urllib2, socket, hashlib, time
-import json
 import xbmc, xbmcgui, xbmcaddon
+
+import musicbrainz
+import database
 
 ADDON        = xbmcaddon.Addon()
 ADDONID      = ADDON.getAddonInfo('id')
@@ -23,9 +24,11 @@ ADDONVERSION = ADDON.getAddonInfo('version')
 LANGUAGE     = ADDON.getLocalizedString
 
 # TODO query rating when song, album or artist is added
-# TODO query periodically for updates on rating
+# TODO query periodically for updates on rating (No)
 # TODO update rating on server if changed locally, revert on fail.
 # TODO save queue to file similar to lastfm if submit of rating does not work immediately
+# TODO handle non album tracks
+# TODO show progress when querying database and musicbrainz
 
 def log(txt):
     if isinstance (txt,str):
@@ -40,8 +43,9 @@ class Main:
             xbmc.sleep(1000)
 
     def _service_setup( self ):
-        self.MusicBrainzURL       = 'http://www.musicbrainz.org/'
+        self.MusicBrainzURL       = 'https://www.musicbrainz.org/'
         self.Monitor              = MyMonitor(action = self._get_settings)
+        self.Exit                 = False
         self._get_settings()
 
     def _get_settings( self ):
@@ -58,9 +62,53 @@ class MyMonitor(xbmc.Monitor):
         log('#DEBUG# onSettingsChanged')
         self.action()
 
-if ( __name__ == "__main__" ):
-    log('script version %s started' % ADDONVERSION)
-    Main()
+def refreshAllRatings():
+    #TODO user and password
+    mbUrl  = "https://musicbrainz.org"
+    mbUser = "TBD"
+    mbPass = "TBD"
+    number=25
+    dateadded="2017-10-14 10:59:13"
 
-log('script stopped')
+    albumitems = database.getAlbumRatings()
+    for albumitem in albumitems:
+        albumid            = albumitem['albumid']
+        musicbrainzalbumid = albumitem['musicbrainzalbumid']
+        albumtitle         = albumitem['label']
+        albumuserrating    = albumitem['userrating']
+
+        # Update album rating in Kodi
+        newalbumuserrating = musicbrainz.getAlbumRating(mbUrl, mbUser, mbPass, musicbrainzalbumid)
+        if albumuserrating <> newalbumuserrating:
+            log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+            database.setAlbumRating(albumid, newalbumuserrating)
+
+        # Update song ratings in Kodi
+        songitems = database.getSongRatingsByAlbum(albumid)
+        songratings = musicbrainz.getSongRatings(mbUrl, mbUser, mbPass, musicbrainzalbumid)
+        for songitem in songitems:
+            songid             = songitem['songid']
+            musicbrainztrackid = songitem['musicbrainztrackid']
+            songtitle          = songitem['label']
+            songuserrating     = songitem['userrating']
+
+            newsonguserrating = songratings.get(musicbrainztrackid, None)
+
+            if newsonguserrating == None:
+                log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
+                newsonguserrating = musicbrainz.getSongRating(mbUrl, mbUser, mbPass, musicbrainztrackid)
+
+            if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
+                log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
+                database.setSongRating(songid, newsonguserrating)
+
+if ( __name__ == "__main__" ):
+    if len(sys.argv) > 1 and sys.argv[1] == 'refreshAllRatings':
+        refreshAllRatings()
+    else:
+        log('script version %s started' % ADDONVERSION)
+
+        Main()
+
+        log('script stopped')
 
