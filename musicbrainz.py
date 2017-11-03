@@ -30,7 +30,7 @@ def getSongRating(mbUrl, mbUser, mbPass, mbSongId):
     resp = requests.get(url, auth=HTTPDigestAuth(mbUser, mbPass), headers={'User-Agent': useragent})
     if resp.status_code == 401:
         # TODO: throw
-        return {}
+        return 0
     mbSong=resp.json()
 
     if ("user-rating" in mbSong) and ("value" in mbSong['user-rating']) and (mbSong['user-rating']['value'] is not None):
