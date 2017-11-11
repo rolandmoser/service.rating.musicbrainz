@@ -33,6 +33,7 @@ LANGUAGE     = ADDON.getLocalizedString
 # TODO handle non album tracks
 # TODO show progress when querying database and musicbrainz
 # TODO check why some songs are not found in the musicbrainz.getSongRatingsByAlbum
+# TODO quit gracefully
 
 def log(txt, level=xbmc.LOGDEBUG):
     if isinstance (txt,str):
@@ -44,10 +45,9 @@ class Main:
     def __init__(self, action):
         print action
         self._service_setup()
-        if action == 'refreshAllRatings':
+        if action == 'refreshAll':
             try:
-#                self._refresh_new()
-                self._refresh_all_ratings()
+                self.refresh_all()
             except musicbrainz.MusicbrainzException as error:
                 log('Error: ' + repr(error))
             
@@ -56,25 +56,18 @@ class Main:
 
     def _service_setup(self):
         self.MusicBrainzURL       = 'https://www.musicbrainz.org'
-        self.fileLastScan         = 'lastscan'
         self.fileQueue            = 'queue'
-        self.Monitor              = MyMonitor(action = self._get_settings)
+        self.Monitor              = MyMonitor(main = self)
         self.Exit                 = False
-        self._get_settings()
+        self.get_settings()
 
-    def _get_settings(self):
+    def get_settings(self):
         log('#DEBUG# reading settings')
         mbUser        = ADDON.getSetting('username').lower()
         mbPass        = ADDON.getSetting('password')
 
-    def _refresh_new(self):
+    def refresh_unrated(self):
         log('Rescan start')
-        s = utils.read_file(self.fileLastScan)
-        if not s:
-            _refresh_all_ratings()
-            return
-
-        lastscan = utils.parseTime(s)
 
         mbUrl  = self.MusicBrainzURL
         mbUser = ADDON.getSetting('username').lower()
@@ -87,10 +80,9 @@ class Main:
             musicbrainzalbumid = albumitem['musicbrainzalbumid']
             albumtitle         = albumitem['label']
             albumuserrating    = albumitem['userrating']
-            albumdateadded     = utils.parseTime(albumitem['dateadded'])
 
             # Update album rating in Kodi
-            if albumdateadded >= lastscan:
+            if albumuserrating == 0:
                 (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
                 if albumuserrating <> newalbumuserrating:
                     log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
@@ -98,7 +90,7 @@ class Main:
 
             # Update song ratings in Kodi
             songitems = database.getSongRatingsByAlbum(albumid)
-            songitems = database.getSongsSince(songitems, lastscan)
+            songitems = database.getSongsUnrated(songitems)
             if songitems:
                 (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
                 for songitem in songitems:
@@ -116,10 +108,9 @@ class Main:
                     if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
                         log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
                         database.setSongRating(songid, newsonguserrating)
-        utils.write_file(self.fileLastScan, datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
         log('Rescan done')
 
-    def _refresh_all_ratings(self):
+    def refresh_all(self):
         log('Full rescan start')
         mbUrl  = self.MusicBrainzURL
         mbUser = ADDON.getSetting('username').lower()
@@ -157,17 +148,22 @@ class Main:
                 if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
                     log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
                     database.setSongRating(songid, newsonguserrating)
-        utils.write_file(self.fileLastScan, datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"))
         log('Full rescan done')
 
 class MyMonitor(xbmc.Monitor):
     def __init__( self, *args, **kwargs ):
         xbmc.Monitor.__init__( self )
-        self.action = kwargs['action']
+        self.main = kwargs['main']
 
     def onSettingsChanged(self):
         log('#DEBUG# onSettingsChanged')
-        self.action()
+        self.main.get_settings()
+
+    def  onScanFinished(self, library):
+        log('Finished Scan: %s' % (library))
+        if library == 'music':
+            self.main.refresh_unrated()
+            
 
 if ( __name__ == "__main__" ):
     log('script version %s started' % ADDONVERSION)

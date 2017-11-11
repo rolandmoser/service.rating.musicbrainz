@@ -1,10 +1,8 @@
 import xbmc
 import json
 
-import utils
-
 def getAlbumRatings():
-    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbums", "params": { "properties": ["musicbrainzalbumid", "userrating", "dateadded"]}, "id": "libAlbums"}')
+    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbums", "params": { "properties": ["musicbrainzalbumid", "userrating"]}, "id": "libAlbums"}')
     json_response = json.loads(json_query)
 
     if ("result" in json_response) and ("albums" in json_response['result']):
@@ -12,15 +10,8 @@ def getAlbumRatings():
     else:
         return []
 
-#def getAlbumsSince(albums, date):
-#    filteredList = []
-#    for album in albums:
-#        if album["dateadded"] >= date:
-#            filteredList.add(album)
-#    return filteredList
-
 def getSongRatingsByAlbum(albumid):
-    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetSongs", "params": { "filter": {"albumid": %d}, "properties": [ "albumid", "musicbrainztrackid", "userrating", "dateadded" ]}, "id": "libSongs"}' % (albumid))
+    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetSongs", "params": { "filter": {"albumid": %d}, "properties": [ "albumid", "musicbrainztrackid", "userrating" ]}, "id": "libSongs"}' % (albumid))
     json_response = json.loads(json_query)
 
     if ("result" in json_response) and ("songs" in json_response['result']):
@@ -28,11 +19,11 @@ def getSongRatingsByAlbum(albumid):
     else:
         return None
 
-def getSongsSince(songs, date):
+def getSongsUnrated(songs):
     filteredList = []
     for song in songs:
-        if utils.parseTime(song['dateadded']) >= date:
-            filteredList.add(song)
+        if song['userrating'] == 0:
+            filteredList.append(song)
 
     return filteredList
 
