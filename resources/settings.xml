@@ -2,5 +2,7 @@
 <settings>
     <setting label="30001" type="text"   id="username" default=""/>
     <setting label="30002" type="text"   id="password" option="hidden"  enable="!eq(-1,)" default=""/>
+    <setting label="30006" type="bool"   id="albumRatings" default="true"/>
+    <setting label="30007" type="bool"   id="songRatings" default="true"/>
     <setting label="30003" type="action" action="RunScript(service.rating.musicbrainz,refreshAll)" id="path" />
 </settings>

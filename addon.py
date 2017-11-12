@@ -29,7 +29,6 @@ LANGUAGE     = ADDON.getLocalizedString
 # TODO update rating on server if changed locally
 # TODO save to queue if submit of rating does not work
 # TODO quit gracefully
-# TODO query rating for artists
 
 def log(txt, level=xbmc.LOGDEBUG):
     if isinstance (txt,str):
@@ -58,8 +57,10 @@ class Main:
 
     def get_settings(self):
         log('#DEBUG# reading settings')
-        mbUser        = ADDON.getSetting('username').lower()
-        mbPass        = ADDON.getSetting('password')
+        mbUser         = ADDON.getSetting('username').lower()
+        mbPass         = ADDON.getSetting('password')
+        mbAlbumRatings = ADDON.getSetting('albumRatings') == 'true'
+        mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
 
     def refresh_unrated(self):
         log('Rescan start')
@@ -67,10 +68,16 @@ class Main:
         dialogprogress.create(ADDONID + LANGUAGE(30004), "")
         dialogprogress.update(0, '%s' % (LANGUAGE(30005)))
 
-        mbUrl  = self.MusicBrainzURL
-        mbUser = ADDON.getSetting('username').lower()
-        mbPass = ADDON.getSetting('password')
-        mbWait = 1
+        mbUrl          = self.MusicBrainzURL
+        mbUser         = ADDON.getSetting('username').lower()
+        mbPass         = ADDON.getSetting('password')
+        mbAlbumRatings = ADDON.getSetting('albumRatings') == 'true'
+        mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
+        mbWait         = 1
+
+        log('%s, %s' % (mbAlbumRatings, mbSongRatings))
+        if (not mbAlbumRatings) and (not mbSongRatings):
+            return
 
         albumitems = database.getAlbumRatings()
         cnt = 0
@@ -83,7 +90,7 @@ class Main:
 
             dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
 
-            if musicbrainzalbumid <> '':
+            if mbAlbumRatings and musicbrainzalbumid <> '':
                 # Update album rating in Kodi
                 if albumuserrating == 0:
                     (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
@@ -92,15 +99,87 @@ class Main:
                         database.setAlbumRating(albumid, newalbumuserrating)
 
             # Update song ratings in Kodi
-            songitems = database.getSongRatingsByAlbum(albumid)
-            songitems = database.getSongsUnrated(songitems)
-            if songitems:
+            if mbSongRatings:
+                songitems = database.getSongRatingsByAlbum(albumid)
+                songitems = database.getSongsUnrated(songitems)
+                if songitems:
+                    if musicbrainzalbumid <> '':
+                        (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                    else:
+                        songratings = {}
+
+                    for songitem in songitems:
+                        songid             = songitem['songid']
+                        musicbrainztrackid = songitem['musicbrainztrackid']
+                        songtitle          = songitem['label']
+                        songuserrating     = songitem['userrating']
+
+                        newsonguserrating = songratings.get(musicbrainztrackid, None)
+
+                        if newsonguserrating == None:
+                            log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
+                            (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
+
+                        if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
+                            log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
+                            database.setSongRating(songid, newsonguserrating)
+
+            cnt+=1
+            dialogprogress.update((100*cnt)/len(albumitems))
+
+        dialogprogress.close()
+        log('Rescan done')
+
+    def refresh_all(self):
+        log('Full rescan start')
+        dialogprogress = xbmcgui.DialogProgress()
+        dialogprogress.create(ADDONID + LANGUAGE(30004), "")
+        dialogprogress.update(0, '%s' % (LANGUAGE(30005)))
+
+        mbUrl          = self.MusicBrainzURL
+        mbUser         = ADDON.getSetting('username').lower()
+        mbPass         = ADDON.getSetting('password')
+        mbAlbumRatings = ADDON.getSetting('albumRatings') == 'true'
+        mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
+        mbWait         = 1
+
+        log('%s, %s' % (mbAlbumRatings, mbSongRatings))
+        if (not mbAlbumRatings) and (not mbSongRatings):
+            return
+
+        albumitems = database.getAlbumRatings()
+        cnt = 0
+        for albumitem in albumitems:
+            albumid            = albumitem['albumid']
+            musicbrainzalbumid = albumitem['musicbrainzalbumid']
+            albumartist        = albumitem['displayartist']
+            albumtitle         = albumitem['label']
+            albumuserrating    = albumitem['userrating']
+
+            dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
+
+            if mbAlbumRatings and musicbrainzalbumid <> '':
+                # Update album rating in Kodi
+                (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                if albumuserrating <> newalbumuserrating:
+                    log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+                    database.setAlbumRating(albumid, newalbumuserrating)
+
+            if dialogprogress.iscanceled():
+                break
+
+            # Update song ratings in Kodi
+            if mbSongRatings:
+                songitems = database.getSongRatingsByAlbum(albumid)
                 if musicbrainzalbumid <> '':
                     (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
                 else:
                     songratings = {}
 
                 for songitem in songitems:
+                    if dialogprogress.iscanceled():
+                        break
+
                     songid             = songitem['songid']
                     musicbrainztrackid = songitem['musicbrainztrackid']
                     songtitle          = songitem['label']
@@ -115,72 +194,8 @@ class Main:
                     if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
                         log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
                         database.setSongRating(songid, newsonguserrating)
-
-            cnt+=1
-            dialogprogress.update((100*cnt)/len(albumitems))
-
-        dialogprogress.close()
-        log('Rescan done')
-
-    def refresh_all(self):
-        log('Full rescan start')
-        dialogprogress = xbmcgui.DialogProgress()
-        dialogprogress.create(ADDONID + LANGUAGE(30004), "")
-        dialogprogress.update(0, '%s' % (LANGUAGE(30005)))
-
-        mbUrl  = self.MusicBrainzURL
-        mbUser = ADDON.getSetting('username').lower()
-        mbPass = ADDON.getSetting('password')
-        mbWait = 1
-
-        albumitems = database.getAlbumRatings()
-        cnt = 0
-        for albumitem in albumitems:
-            albumid            = albumitem['albumid']
-            musicbrainzalbumid = albumitem['musicbrainzalbumid']
-            albumartist        = albumitem['displayartist']
-            albumtitle         = albumitem['label']
-            albumuserrating    = albumitem['userrating']
-
-            dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
-
-            if musicbrainzalbumid <> '':
-                # Update album rating in Kodi
-                (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                if albumuserrating <> newalbumuserrating:
-                    log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
-                    database.setAlbumRating(albumid, newalbumuserrating)
-
-            if dialogprogress.iscanceled():
-                break
-
-            # Update song ratings in Kodi
-            songitems = database.getSongRatingsByAlbum(albumid)
-            if musicbrainzalbumid <> '':
-                (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-            else:
-                songratings = {}
-
-            for songitem in songitems:
-                if dialogprogress.iscanceled():
-                    break
-
-                songid             = songitem['songid']
-                musicbrainztrackid = songitem['musicbrainztrackid']
-                songtitle          = songitem['label']
-                songuserrating     = songitem['userrating']
-
-                newsonguserrating = songratings.get(musicbrainztrackid, None)
-
-                if newsonguserrating == None:
-                    log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
-                    (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
-
-                if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
-                    log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
-                    database.setSongRating(songid, newsonguserrating)
-            cnt+=1
-            dialogprogress.update((100*cnt)/len(albumitems))
+                cnt+=1
+                dialogprogress.update((100*cnt)/len(albumitems))
 
             if dialogprogress.iscanceled():
                 break
