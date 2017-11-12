@@ -2,7 +2,7 @@ import xbmc
 import json
 
 def getAlbumRatings():
-    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbums", "params": { "properties": ["musicbrainzalbumid", "userrating"]}, "id": "libAlbums"}')
+    json_query = xbmc.executeJSONRPC('{"jsonrpc": "2.0", "method": "AudioLibrary.GetAlbums", "params": { "properties": ["musicbrainzalbumid", "userrating", "displayartist"]}, "id": "libAlbums"}')
     json_response = json.loads(json_query)
 
     if ("result" in json_response) and ("albums" in json_response['result']):

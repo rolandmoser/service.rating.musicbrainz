@@ -3,6 +3,4 @@
     <setting label="30001" type="text"   id="username" default=""/>
     <setting label="30002" type="text"   id="password" option="hidden"  enable="!eq(-1,)" default=""/>
     <setting label="30003" type="action" action="RunScript(service.rating.musicbrainz,refreshAll)" id="path" />
-    <!-- TODO: add setting how often to perform a refresh -->
-    <!-- not necessary, just update new ones after a library refresh and other only on explicit refresh -->
 </settings>

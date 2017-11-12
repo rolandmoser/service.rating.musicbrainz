@@ -3,5 +3,7 @@
     <string id="30001">MusicBrainz user name</string>
     <string id="30002">MusicBrainz password</string>
     <string id="30003">Refresh all ratings</string>
+    <string id="30004">Refresh ratings from Musicbrainz</string>
+    <string id="30005">Scanning album</string>
 </strings>
 
