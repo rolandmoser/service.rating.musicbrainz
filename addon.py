@@ -28,7 +28,6 @@ LANGUAGE     = ADDON.getLocalizedString
 
 # TODO update rating on server if changed locally
 # TODO save to queue if submit of rating does not work
-# TODO check why some songs are not found in the musicbrainz.getSongRatingsByAlbum
 # TODO quit gracefully
 # TODO handle non album tracks
 # TODO query rating for artists
@@ -66,7 +65,7 @@ class Main:
     def refresh_unrated(self):
         log('Rescan start')
         dialogprogress = xbmcgui.DialogProgressBG()
-        dialogprogress.create(ADDONID + LANGUAGE(30004))
+        dialogprogress.create(ADDONID + LANGUAGE(30004), "")
         dialogprogress.update(0, '%s' % (LANGUAGE(30005)))
 
         mbUrl  = self.MusicBrainzURL
@@ -122,7 +121,7 @@ class Main:
     def refresh_all(self):
         log('Full rescan start')
         dialogprogress = xbmcgui.DialogProgress()
-        dialogprogress.create(ADDONID + LANGUAGE(30004))
+        dialogprogress.create(ADDONID + LANGUAGE(30004), "")
         dialogprogress.update(0, '%s' % (LANGUAGE(30005)))
 
         mbUrl  = self.MusicBrainzURL

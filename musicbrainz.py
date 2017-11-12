@@ -54,8 +54,20 @@ def getSongRating(mbUrl, mbWait, mbUser, mbPass, mbSongId):
     raise MusicbrainzException('Throttling failed')
 
 def getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, mbAlbumId):
+    offset=0
+    limit=100
+
+    ratingdict = {}
+    while True:
+        (ratingdict2, mbWait, count) = getSongRatingsByAlbumPart(mbUrl, mbWait, mbUser, mbPass, mbAlbumId, offset, limit)
+        ratingdict.update(ratingdict2)
+        offset+=limit
+        if offset > count:
+            return (ratingdict, mbWait)
+
+def getSongRatingsByAlbumPart(mbUrl, mbWait, mbUser, mbPass, mbAlbumId, offset, limit):
     # Get all song ratings from an album (MusicBrainz)
-    url = "%s/ws/2/recording/?release=%s&inc=user-ratings&fmt=json" % (mbUrl, mbAlbumId)
+    url = "%s/ws/2/recording/?release=%s&offset=%d&limit=%d&inc=user-ratings&fmt=json" % (mbUrl, mbAlbumId, offset, limit)
 
     while mbWait < 10:
         time.sleep(mbWait)
@@ -68,6 +80,11 @@ def getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, mbAlbumId):
 
         mbSongs=resp.json()
 
+        if ("recording-count" in mbSongs):
+            count=int(mbSongs['recording-count'])
+        else:
+            count=limit
+
         ratingdict = {}
         if ("recordings" in mbSongs):
             for mbSong in mbSongs['recordings']:
@@ -77,7 +94,7 @@ def getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, mbAlbumId):
                     else:
                         ratingdict[mbSong['id']] = 0
 
-        return (ratingdict, mbWait)
+        return (ratingdict, mbWait, count)
 
     raise MusicbrainzException('Throttling failed')
 
