@@ -29,7 +29,6 @@ LANGUAGE     = ADDON.getLocalizedString
 # TODO update rating on server if changed locally
 # TODO save to queue if submit of rating does not work
 # TODO quit gracefully
-# TODO handle non album tracks
 # TODO query rating for artists
 
 def log(txt, level=xbmc.LOGDEBUG):
@@ -84,18 +83,23 @@ class Main:
 
             dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
 
-            # Update album rating in Kodi
-            if albumuserrating == 0:
-                (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                if albumuserrating <> newalbumuserrating:
-                    log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
-                    database.setAlbumRating(albumid, newalbumuserrating)
+            if musicbrainzalbumid <> '':
+                # Update album rating in Kodi
+                if albumuserrating == 0:
+                    (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                    if albumuserrating <> newalbumuserrating:
+                        log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+                        database.setAlbumRating(albumid, newalbumuserrating)
 
             # Update song ratings in Kodi
             songitems = database.getSongRatingsByAlbum(albumid)
             songitems = database.getSongsUnrated(songitems)
             if songitems:
-                (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                if musicbrainzalbumid <> '':
+                    (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                else:
+                    songratings = {}
+
                 for songitem in songitems:
                     songid             = songitem['songid']
                     musicbrainztrackid = songitem['musicbrainztrackid']
@@ -140,18 +144,23 @@ class Main:
 
             dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
 
-            # Update album rating in Kodi
-            (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-            if albumuserrating <> newalbumuserrating:
-                log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
-                database.setAlbumRating(albumid, newalbumuserrating)
+            if musicbrainzalbumid <> '':
+                # Update album rating in Kodi
+                (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                if albumuserrating <> newalbumuserrating:
+                    log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+                    database.setAlbumRating(albumid, newalbumuserrating)
 
             if dialogprogress.iscanceled():
                 break
 
             # Update song ratings in Kodi
             songitems = database.getSongRatingsByAlbum(albumid)
-            (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+            if musicbrainzalbumid <> '':
+                (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+            else:
+                songratings = {}
+
             for songitem in songitems:
                 if dialogprogress.iscanceled():
                     break
