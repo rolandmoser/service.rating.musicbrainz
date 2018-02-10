@@ -40,11 +40,7 @@ class Main:
     def __init__(self, action):
         self._service_setup()
         if action == 'refreshAll':
-            try:
-                self.refresh_all()
-            except musicbrainz.MusicbrainzException as error:
-                log('Error: ' + repr(error))
-            
+            self.refresh_all()
         while (not self.Monitor.abortRequested()) and (not self.Exit):
             xbmc.sleep(1000)
 
@@ -75,57 +71,60 @@ class Main:
         mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
         mbWait         = 1
 
-        log('%s, %s' % (mbAlbumRatings, mbSongRatings))
-        if (not mbAlbumRatings) and (not mbSongRatings):
-            return
+        try:
+            log('%s, %s' % (mbAlbumRatings, mbSongRatings))
+            if (not mbAlbumRatings) and (not mbSongRatings):
+                return
 
-        albumitems = database.getAlbumRatings()
-        cnt = 0
-        for albumitem in albumitems:
-            albumid            = albumitem['albumid']
-            musicbrainzalbumid = albumitem['musicbrainzalbumid']
-            albumartist        = albumitem['displayartist']
-            albumtitle         = albumitem['label']
-            albumuserrating    = albumitem['userrating']
+            albumitems = database.getAlbumRatings()
+            cnt = 0
+            for albumitem in albumitems:
+                albumid            = albumitem['albumid']
+                musicbrainzalbumid = albumitem['musicbrainzalbumid']
+                albumartist        = albumitem['displayartist']
+                albumtitle         = albumitem['label']
+                albumuserrating    = albumitem['userrating']
 
-            dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
+                dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
 
-            if mbAlbumRatings and musicbrainzalbumid <> '':
-                # Update album rating in Kodi
-                if albumuserrating == 0:
-                    (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                    if albumuserrating <> newalbumuserrating:
-                        log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
-                        database.setAlbumRating(albumid, newalbumuserrating)
+                if mbAlbumRatings and musicbrainzalbumid <> '':
+                    # Update album rating in Kodi
+                    if albumuserrating == 0:
+                        (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                        if albumuserrating <> newalbumuserrating:
+                            log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+                            database.setAlbumRating(albumid, newalbumuserrating)
 
-            # Update song ratings in Kodi
-            if mbSongRatings:
-                songitems = database.getSongRatingsByAlbum(albumid)
-                songitems = database.getSongsUnrated(songitems)
-                if songitems:
-                    if musicbrainzalbumid <> '':
-                        (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                    else:
-                        songratings = {}
+                # Update song ratings in Kodi
+                if mbSongRatings:
+                    songitems = database.getSongRatingsByAlbum(albumid)
+                    songitems = database.getSongsUnrated(songitems)
+                    if songitems:
+                        if musicbrainzalbumid <> '':
+                            (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                        else:
+                            songratings = {}
 
-                    for songitem in songitems:
-                        songid             = songitem['songid']
-                        musicbrainztrackid = songitem['musicbrainztrackid']
-                        songtitle          = songitem['label']
-                        songuserrating     = songitem['userrating']
+                        for songitem in songitems:
+                            songid             = songitem['songid']
+                            musicbrainztrackid = songitem['musicbrainztrackid']
+                            songtitle          = songitem['label']
+                            songuserrating     = songitem['userrating']
 
-                        newsonguserrating = songratings.get(musicbrainztrackid, None)
+                            newsonguserrating = songratings.get(musicbrainztrackid, None)
 
-                        if newsonguserrating == None:
-                            log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
-                            (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
+                            if newsonguserrating == None:
+                                log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
+                                (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
 
-                        if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
-                            log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
-                            database.setSongRating(songid, newsonguserrating)
+                            if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
+                                log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
+                                database.setSongRating(songid, newsonguserrating)
 
-            cnt+=1
-            dialogprogress.update((100*cnt)/len(albumitems))
+                cnt+=1
+                dialogprogress.update((100*cnt)/len(albumitems))
+        except musicbrainz.MusicbrainzException as error:
+            log('Error: ' + repr(error), level=xbmc.LOGINFO)
 
         dialogprogress.close()
         log('Rescan done')
@@ -143,63 +142,68 @@ class Main:
         mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
         mbWait         = 1
 
-        log('%s, %s' % (mbAlbumRatings, mbSongRatings))
-        if (not mbAlbumRatings) and (not mbSongRatings):
-            return
+	log('Password %s' % mbPass)
 
-        albumitems = database.getAlbumRatings()
-        cnt = 0
-        for albumitem in albumitems:
-            albumid            = albumitem['albumid']
-            musicbrainzalbumid = albumitem['musicbrainzalbumid']
-            albumartist        = albumitem['displayartist']
-            albumtitle         = albumitem['label']
-            albumuserrating    = albumitem['userrating']
+        try:
+            log('%s, %s' % (mbAlbumRatings, mbSongRatings))
+            if (not mbAlbumRatings) and (not mbSongRatings):
+                return
 
-            dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
+            albumitems = database.getAlbumRatings()
+            cnt = 0
+            for albumitem in albumitems:
+                albumid            = albumitem['albumid']
+                musicbrainzalbumid = albumitem['musicbrainzalbumid']
+                albumartist        = albumitem['displayartist']
+                albumtitle         = albumitem['label']
+                albumuserrating    = albumitem['userrating']
 
-            if mbAlbumRatings and musicbrainzalbumid <> '':
-                # Update album rating in Kodi
-                (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                if albumuserrating <> newalbumuserrating:
-                    log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
-                    database.setAlbumRating(albumid, newalbumuserrating)
+                dialogprogress.update((100*cnt)/len(albumitems), '%s: %s - %s' % (LANGUAGE(30005), albumartist, albumtitle))
 
-            if dialogprogress.iscanceled():
-                break
+                if mbAlbumRatings and musicbrainzalbumid <> '':
+                    # Update album rating in Kodi
+                    (newalbumuserrating, mbWait) = musicbrainz.getAlbumRating(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                    if albumuserrating <> newalbumuserrating:
+                        log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
+                        database.setAlbumRating(albumid, newalbumuserrating)
 
-            # Update song ratings in Kodi
-            if mbSongRatings:
-                songitems = database.getSongRatingsByAlbum(albumid)
-                if musicbrainzalbumid <> '':
-                    (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
-                else:
-                    songratings = {}
+                if dialogprogress.iscanceled():
+                    break
 
-                for songitem in songitems:
-                    if dialogprogress.iscanceled():
-                        break
+                # Update song ratings in Kodi
+                if mbSongRatings:
+                    songitems = database.getSongRatingsByAlbum(albumid)
+                    if musicbrainzalbumid <> '':
+                        (songratings, mbWait) = musicbrainz.getSongRatingsByAlbum(mbUrl, mbWait, mbUser, mbPass, musicbrainzalbumid)
+                    else:
+                        songratings = {}
 
-                    songid             = songitem['songid']
-                    musicbrainztrackid = songitem['musicbrainztrackid']
-                    songtitle          = songitem['label']
-                    songuserrating     = songitem['userrating']
+                    for songitem in songitems:
+                        if dialogprogress.iscanceled():
+                            break
 
-                    newsonguserrating = songratings.get(musicbrainztrackid, None)
+                        songid             = songitem['songid']
+                        musicbrainztrackid = songitem['musicbrainztrackid']
+                        songtitle          = songitem['label']
+                        songuserrating     = songitem['userrating']
 
-                    if newsonguserrating == None:
-                        log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
-                        (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
+                        newsonguserrating = songratings.get(musicbrainztrackid, None)
 
-                    if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
-                        log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
-                        database.setSongRating(songid, newsonguserrating)
-                cnt+=1
-                dialogprogress.update((100*cnt)/len(albumitems))
+                        if newsonguserrating == None:
+                            log("Song (%s) not found in Album (%s)" % (songtitle, albumtitle))
+                            (newsonguserrating, mbWait) = musicbrainz.getSongRating(mbUrl, mbWait, mbUser, mbPass, musicbrainztrackid)
 
-            if dialogprogress.iscanceled():
-                break
+                        if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
+                            log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
+                            database.setSongRating(songid, newsonguserrating)
+                    cnt+=1
+                    dialogprogress.update((100*cnt)/len(albumitems))
 
+                if dialogprogress.iscanceled():
+                    break
+
+        except musicbrainz.MusicbrainzException as error:
+            log('Error: ' + repr(error))
 
         dialogprogress.close()
         log('Full rescan done')
