@@ -124,7 +124,7 @@ class Main:
                 cnt+=1
                 dialogprogress.update((100*cnt)/len(albumitems))
         except musicbrainz.MusicbrainzException as error:
-            log('Error: ' + repr(error), level=xbmc.LOGINFO)
+            log('Error: ' + repr(error), level=xbmc.LOGERROR)
 
         dialogprogress.close()
         log('Rescan done')
@@ -141,8 +141,6 @@ class Main:
         mbAlbumRatings = ADDON.getSetting('albumRatings') == 'true'
         mbSongRatings  = ADDON.getSetting('songRatings') == 'true'
         mbWait         = 1
-
-	log('Password %s' % mbPass)
 
         try:
             log('%s, %s' % (mbAlbumRatings, mbSongRatings))
@@ -203,7 +201,7 @@ class Main:
                     break
 
         except musicbrainz.MusicbrainzException as error:
-            log('Error: ' + repr(error))
+            log('Error: ' + repr(error), level=xbmc.LOGERROR)
 
         dialogprogress.close()
         log('Full rescan done')
@@ -217,11 +215,10 @@ class MyMonitor(xbmc.Monitor):
         log('#DEBUG# onSettingsChanged')
         self.main.get_settings()
 
-    def  onScanFinished(self, library):
+    def onScanFinished(self, library):
         log('Finished Scan: %s' % (library))
         if library == 'music':
             self.main.refresh_unrated()
-            
 
 if ( __name__ == "__main__" ):
     log('script version %s started' % ADDONVERSION)
