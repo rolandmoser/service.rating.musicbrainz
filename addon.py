@@ -28,7 +28,6 @@ LANGUAGE     = ADDON.getLocalizedString
 
 # TODO update rating on server if changed locally
 # TODO save to queue if submit of rating does not work
-# TODO quit gracefully
 
 def log(txt, level=xbmc.LOGDEBUG):
     if isinstance (txt,str):
@@ -41,7 +40,7 @@ class Main:
         self._service_setup()
         if action == 'refreshAll':
             self.refresh_all()
-        while (not self.Monitor.abortRequested()) and (not self.Exit):
+        while (not self.Monitor.abortRequested) and (not self.Exit):
             xbmc.sleep(1000)
 
     def _service_setup(self):
@@ -95,6 +94,9 @@ class Main:
                             log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
                             database.setAlbumRating(albumid, newalbumuserrating)
 
+                if dialogprogress.iscanceled() or self.Monitor.abortRequested:
+                    break
+
                 # Update song ratings in Kodi
                 if mbSongRatings:
                     songitems = database.getSongRatingsByAlbum(albumid)
@@ -106,6 +108,9 @@ class Main:
                             songratings = {}
 
                         for songitem in songitems:
+                            if dialogprogress.iscanceled() or self.Monitor.abortRequested:
+                                break
+
                             songid             = songitem['songid']
                             musicbrainztrackid = songitem['musicbrainztrackid']
                             songtitle          = songitem['label']
@@ -123,6 +128,10 @@ class Main:
 
                 cnt+=1
                 dialogprogress.update((100*cnt)/len(albumitems))
+
+                if dialogprogress.iscanceled() or self.Monitor.abortRequested:
+                    break
+
         except musicbrainz.MusicbrainzException as error:
             log('Error: ' + repr(error), level=xbmc.LOGERROR)
 
@@ -165,7 +174,7 @@ class Main:
                         log("Update album rating for %d from %d to %d" % (albumid, albumuserrating, newalbumuserrating))
                         database.setAlbumRating(albumid, newalbumuserrating)
 
-                if dialogprogress.iscanceled():
+                if dialogprogress.iscanceled() or self.Monitor.abortRequested:
                     break
 
                 # Update song ratings in Kodi
@@ -177,7 +186,7 @@ class Main:
                         songratings = {}
 
                     for songitem in songitems:
-                        if dialogprogress.iscanceled():
+                        if dialogprogress.iscanceled() or self.Monitor.abortRequested:
                             break
 
                         songid             = songitem['songid']
@@ -194,10 +203,11 @@ class Main:
                         if (newsonguserrating <> None) and (songuserrating <> newsonguserrating):
                             log("Update song rating for %d from %d to %d" % (songid, songuserrating, newsonguserrating))
                             database.setSongRating(songid, newsonguserrating)
-                    cnt+=1
-                    dialogprogress.update((100*cnt)/len(albumitems))
 
-                if dialogprogress.iscanceled():
+                cnt+=1
+                dialogprogress.update((100*cnt)/len(albumitems))
+
+                if dialogprogress.iscanceled() or self.Monitor.abortRequested:
                     break
 
         except musicbrainz.MusicbrainzException as error:
@@ -217,6 +227,9 @@ class MyMonitor(xbmc.Monitor):
 
     def onScanFinished(self, library):
         log('Finished Scan: %s' % (library))
+        if self.abortRequested:
+            return
+
         if library == 'music':
             self.main.refresh_unrated()
 
